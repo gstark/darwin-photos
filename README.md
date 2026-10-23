@@ -1,136 +1,142 @@
-# darwin-photos
+# Shoebox
 
-[![GitHub stars](https://img.shields.io/github/stars/cleanexit0/darwin-photos)](https://github.com/cleanexit0/darwin-photos/stargazers)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Homebrew](https://img.shields.io/badge/homebrew-available-orange)](https://github.com/cleanexit0/homebrew-tap)
+Shoebox backs up your iCloud Photos library to an external drive or an S3 bucket. You can keep "Optimize Mac Storage" on while it runs.
 
-**Back up iCloud Photos to external storage — without downloading everything to your Mac first.**
+Shoebox has two parts:
 
-```
-$ darwin-photos backup /Volumes/External/photos-backup
-Scanning library... 37,314 photos (326.8 GB)
-Scanning output directory... 31,000 already backed up
-Local copies: 1,203 | Cloud downloads: 5,111
+- `Shoebox.app`, a menu bar app that runs backups on a schedule.
+- `shoebox`, a command-line tool for backups and for looking around your library.
 
-[████████████████░░░░] 67% | 218.9GB/326.8GB | 156 MB/s | ETA 2m
-```
+Both parts use the same Swift library, so a backup from the app and a backup from the CLI give the same result.
 
-## Why this exists
+## Where Shoebox comes from
 
-You have 500GB of photos in iCloud. Your Mac has 512GB total. You use "Optimize Mac Storage" because you have to.
+Shoebox started as a fork of [darwin-photos](https://github.com/cleanexit0/darwin-photos) by [cleanexit0](https://github.com/cleanexit0). darwin-photos is a Go CLI that reads the Photos database directly, copies local originals, and downloads cloud-only originals from iCloud. That approach is the core of Shoebox, and the credit for it goes to darwin-photos.
 
-Now you want a backup on an external drive.
+The plan was to add a few features to the Go tool. It turned into a rewrite. Shoebox is now a separate macOS app in Swift. It is inspired by darwin-photos and derived from it, but it does not track upstream and it does not send changes back.
 
-**Your options today:**
+What changed in the rewrite:
 
-| Method | Pain level |
-|--------|-----------|
-| Turn off "Optimize Storage", wait days for download, copy to external, turn it back on, wait days for re-upload | Brutal |
-| Download from icloud.com manually | Flaky, slow, 1000-photo limit |
-| Use `icloudpd` | Downloads everything from iCloud API (can't use local cache), [~5 MB/s even on gigabit](https://github.com/icloud-photos-downloader/icloud_photos_downloader/issues/1215) |
-| Use `osxphotos --download-missing` | [AppleScript is inherently slow](https://github.com/RhetTbull/osxphotos/discussions/1388), can crash Photos.app |
+- The code is Swift 6.2 for macOS 26. The original Go code is gone from this branch. It is in the git history and in the upstream repository.
+- A menu bar app runs scheduled backups. It waits for power, an allowed network, and the backup drive before it starts.
+- PhotoKit downloads cloud-only originals first. The iCloud web API is the fallback for assets that PhotoKit cannot see.
+- An in-app login window signs in to iCloud. You do not need to export browser cookies.
+- The app keeps a history of runs with a log for each run.
 
-**darwin-photos approach:**
+Backups stay compatible with darwin-photos. The file names, S3 object keys, and S3 metadata are the same, so you can point Shoebox at an existing darwin-photos backup and it skips the files that are already there. See [docs/swift-port-plan.md](docs/swift-port-plan.md) for the full list of compatibility rules.
 
-1. Reads your local Photos database directly (instant)
-2. Local files → copies directly to external (fast, ~150MB/s)
-3. Cloud-only files → downloads via iCloud API (parallel, with progress)
-4. "Optimize Storage" stays ON the whole time
+Shoebox keeps its own files in `~/.shoebox`. It does not read `~/.darwin-photos`. To use the iCloud session that darwin-photos saved, run `shoebox export import-session`.
 
-## Installation
+## Install
+
+Shoebox has no release builds yet. To build and install from source, you need Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen), and an Apple Development signing certificate.
 
 ```bash
-brew install cleanexit0/tap/darwin-photos
+make install
 ```
 
-Or download from [releases](https://github.com/cleanexit0/darwin-photos/releases).
+This command:
+
+1. Builds `Shoebox.app` and the `shoebox` CLI.
+2. Signs both with your development certificate.
+3. Installs the app in `/Applications`.
+4. Links the CLI to `~/.local/bin/shoebox`.
+
+Set `SIGNING_IDENTITY`, `APPLICATIONS`, or `BIN_DIR` to change the defaults.
+
+## Requirements
+
+- macOS 26 or later.
+- Full Disk Access for Shoebox (System Settings > Privacy & Security > Full Disk Access).
+- Access to your Photos library. The app asks for it the first time it runs.
+- For assets that PhotoKit cannot download, an iCloud sign-in from the app.
 
 ## Quick start
 
 ```bash
-# See what's in your library
-darwin-photos stats
+# See what is in your library
+shoebox stats
 
 # List recent photos
-darwin-photos ls
+shoebox ls
 
-# Backup everything to external drive
-darwin-photos backup /Volumes/External/photos-backup
-```
+# Back up everything to an external drive
+shoebox backup /Volumes/External/photos-backup
 
-For cloud-only photos, you'll need to import cookies once:
-```bash
-# Export cookies from icloud.com using a browser extension, then:
-darwin-photos export import-cookies cookies.txt
+# Or back up to S3 or an S3-compatible service
+shoebox backup s3://my-bucket/photos-backup
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `stats` | Library overview: counts, sizes, local vs cloud |
-| `ls` | List photos with filters (date, album, type, cloud/local) |
-| `cat` | Show detailed metadata for a specific photo |
+| `stats` | Library overview: counts, sizes, local and cloud |
+| `ls` | List photos with filters (date, album, type, cloud or local) |
+| `cat` | Show detailed metadata for one photo |
 | `albums` | List all albums |
-| `backup` | Incremental backup to a directory (local + cloud) |
-| `export` | Export specific photos directly from iCloud |
+| `backup` | Incremental backup to a local folder or an S3 prefix |
+| `export` | Export specific photos by UUID |
 | `sync` | Download cloud photos into your Photos library |
+| `failures` | List or clear assets that failed before |
+| `version` | Print the version |
 
-## Example output
+## Skipped failures
 
+`backup`, `export`, and `sync` record each asset that they cannot find locally or download from iCloud. The list is in `~/.shoebox/failures.db`. Later runs skip these assets by default, so a few broken items do not slow down every backup. A successful attempt removes the asset from the list.
+
+```bash
+# Show the skipped assets
+shoebox failures
+
+# Try the failed assets again
+shoebox backup --retry-failed /Volumes/External/photos-backup
+
+# Forget some assets, or all of them
+shoebox failures clear <UUID>
+shoebox failures clear --all
 ```
-$ darwin-photos stats
-iCloud Storage (counts toward quota):            219.4GB
-  Originals:                                     130.8GB
-  Cloud derivatives:                              88.6GB
 
-Local Cache Only (not in iCloud):                107.4GB
+## S3 backups
 
-By type:
-  Photos:  37182 items     320.2GB
-  Videos:    132 items       6.6GB
+```bash
+# Use a profile from your AWS config
+shoebox backup --s3-profile photos-backup s3://my-bucket/photos-backup
 
-By availability:
-  Downloaded:    2267 items      18.5GB
-  Cloud-only:   35047 items     308.3GB
+# Use an S3-compatible provider
+shoebox backup s3://my-bucket/photos-backup \
+  --s3-endpoint https://s3.us-west-004.backblazeb2.com \
+  --s3-region us-west-004
+
+# Show what would happen without uploading
+shoebox backup --dry-run s3://my-bucket/photos-backup
 ```
 
-```
-$ darwin-photos ls --limit 5
-UUID                                  Filename              Type   Size       Date                 Status
-F8A3B2C1-...                          IMG_4521.HEIC         photo  4.2MB      2024-12-15 14:23     Local
-A1B2C3D4-...                          IMG_4520.HEIC         photo  3.8MB      2024-12-15 14:22     Cloud
-...
-```
+S3 backups use the same layout as local backups: `<UUID>.<ext>` under the prefix. Shoebox skips objects that already exist. Backups only add objects. They never delete remote objects.
+
+The app can also use an IAM user's access key from the Keychain. `scripts/create-backup-iam-user.sh` creates a user with the minimum permissions.
 
 ## How it works
 
-darwin-photos reads `Photos.sqlite` directly — the same database Apple Photos uses. This means:
+Shoebox opens a copy of `Photos.sqlite`, the database that Apple Photos uses. It never writes to the original. This gives it:
 
-- **No re-authentication** with iCloud (your Mac already has access)
-- **Instant library scanning** (it's just a SQLite query)
-- **Accurate cloud/local status** (reads the actual flags Apple uses)
+- A fast library scan, because the scan is one SQLite query.
+- The correct cloud and local status for each asset, from the flags that Photos uses.
 
-For cloud downloads, it uses the same iCloud Photos API that the web interface uses, but with parallel workers and resume capability.
+For each asset, Shoebox copies the local original if it exists. If the original is only in iCloud, Shoebox downloads it with PhotoKit, or with the iCloud web API as a fallback.
 
-## Comparison with alternatives
+## Configuration
 
-| Feature | darwin-photos | [icloudpd](https://github.com/icloud-photos-downloader/icloud_photos_downloader) | [osxphotos](https://github.com/RhetTbull/osxphotos) |
-|---------|--------------|-----------|-----------|
-| Language | Go | Python | Python |
-| Download cloud-only photos | Yes | Yes | Yes ([slow AppleScript](https://github.com/RhetTbull/osxphotos/discussions/1388), can crash Photos) |
-| Use local cache (skip download) | Yes | No (always downloads from iCloud) | Yes |
-| Parallel downloads | Yes (goroutines, configurable workers) | [Single-threaded by default](https://github.com/icloud-photos-downloader/icloud_photos_downloader/issues/1215), optional threading is [buggy](https://github.com/boredazfcuk/docker-icloudpd/blob/master/CONFIGURATION.md) | No |
-| Keeps "Optimize Storage" on | Yes | N/A (no local library) | Yes |
-| Cross-platform | No (macOS only) | Yes (Linux, Windows, macOS) | No (macOS only) |
-| Auth method | Browser cookies | iCloud login + 2FA | Local library access |
+Shoebox keeps its files in `~/.shoebox`:
 
-## Requirements
+- `config.json`: settings. The CLI flags override them.
+- `failures.db`: the assets to skip.
+- `history.json`: recent runs from the app and the CLI.
 
-- macOS (reads Apple's Photos database format)
-- Full Disk Access permission (System Settings → Privacy → Full Disk Access)
-- For cloud photos: cookies from icloud.com
+## License
+
+MIT. Shoebox is derived from darwin-photos, Copyright (c) 2026 cleanexit0. See [LICENSE](LICENSE).
 
 ## Disclaimer
 
-This is an unofficial tool. Not affiliated with Apple. Use at your own risk. Always have multiple backups.
+Shoebox is unofficial. It is not affiliated with Apple. Use it at your own risk, and keep more than one backup.

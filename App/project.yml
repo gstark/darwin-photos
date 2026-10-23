@@ -1,0 +1,45 @@
+name: Shoebox
+options:
+  bundleIdPrefix: com.gstark.shoebox
+  deploymentTarget:
+    macOS: "26.0"
+packages:
+  ShoeboxPackage:
+    path: ..
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    # build.sh signs the app with the Apple Development certificate.
+    CODE_SIGNING_ALLOWED: NO
+    # Debug builds otherwise put the code in a separate .debug.dylib, which
+    # build.sh does not re-sign. The Team IDs then differ and dyld refuses it.
+    ENABLE_DEBUG_DYLIB: NO
+targets:
+  ShoeboxApp:
+    type: application
+    platform: macOS
+    sources: [Shoebox]
+    dependencies:
+      - package: ShoeboxPackage
+        product: ShoeboxCore
+      - package: ShoeboxPackage
+        product: ShoeboxS3
+    info:
+      path: Shoebox/Info.plist
+      properties:
+        CFBundleDisplayName: Shoebox
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "1"
+        # A menu bar app has no Dock icon.
+        LSUIElement: true
+        NSPhotoLibraryUsageDescription: Shoebox downloads cloud-only originals from your Photos library to back them up.
+        # macOS gives the Wi-Fi network name only with Location Services permission.
+        NSLocationUsageDescription: Shoebox reads the name of your Wi-Fi network to run scheduled backups only on the networks that you allow. It does not use your location.
+        NSLocationWhenInUseUsageDescription: Shoebox reads the name of your Wi-Fi network to run scheduled backups only on the networks that you allow. It does not use your location.
+    settings:
+      base:
+        PRODUCT_NAME: Shoebox
+        PRODUCT_BUNDLE_IDENTIFIER: com.gstark.shoebox
+        # The Icon Composer file Shoebox/Shoebox.icon.
+        ASSETCATALOG_COMPILER_APPICON_NAME: Shoebox

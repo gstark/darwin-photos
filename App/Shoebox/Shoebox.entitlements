@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The hardened runtime blocks Photos access without this entitlement. -->
+	<key>com.apple.security.personal-information.photos-library</key>
+	<true/>
+	<!-- Location Services permission gives the Wi-Fi network name. -->
+	<key>com.apple.security.personal-information.location</key>
+	<true/>
+</dict>
+</plist>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="sunset" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9a6b"/><stop offset="1" stop-color="#ffd38a"/></linearGradient>
+  </defs>
+  <g transform="matrix(1.2427 0 0 1.2427 -124.27 -124.27)">
+    <rect x="390" y="250" width="250" height="300" rx="10" fill="#ffffff"/>
+    <rect x="408" y="268" width="214" height="210" fill="url(#sunset)"/>
+    <circle cx="515" cy="400" r="36" fill="#fff3c4"/>
+    <path d="M408 478 L470 410 L520 450 L560 420 L622 478 Z" fill="#c2563f"/>
+  </g>
+</svg>
