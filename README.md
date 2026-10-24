@@ -29,10 +29,18 @@ Shoebox keeps its own files in `~/.shoebox`. It does not read `~/.darwin-photos`
 
 ## Install
 
-Shoebox has no release builds yet. To build and install from source, you need Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen), and an Apple Development signing certificate.
+Install the app and the `shoebox` CLI with Homebrew. The build is for Apple silicon. It is signed but not notarized.
 
 ```bash
-make install
+brew install gstark/tap/shoebox
+```
+
+### Build from source
+
+To build and install from source, you need Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen), [just](https://github.com/casey/just), and an Apple Development signing certificate.
+
+```bash
+just install
 ```
 
 This command:
@@ -43,6 +51,8 @@ This command:
 4. Links the CLI to `~/.local/bin/shoebox`.
 
 Set `SIGNING_IDENTITY`, `APPLICATIONS`, or `BIN_DIR` to change the defaults.
+
+Run `just homebrew` to publish a release and update the cask.
 
 ## Requirements
 

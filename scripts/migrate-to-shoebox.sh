@@ -1,6 +1,6 @@
 #!/bin/bash
 # Moves the Darwin Photos app data to Shoebox. Run it one time, before the
-# first `make install` of Shoebox:
+# first `just install` of Shoebox:
 #   scripts/migrate-to-shoebox.sh
 #
 # 1. Quits and deletes /Applications/DarwinPhotos.app and its CLI link.
@@ -79,4 +79,4 @@ echo "== Permissions"
 echo "Removed the permissions of $OLD_ID."
 
 echo ""
-echo "Next: run make install. Then grant the permissions to Shoebox."
+echo "Next: run just install. Then grant the permissions to Shoebox."
